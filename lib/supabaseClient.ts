@@ -1,10 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { AppSettings, Player, Match } from '../types'; // Assicurati che il percorso sia corretto
 
 // Queste variabili dovrebbero essere configurate nel tuo ambiente (es. .env file o nelle impostazioni di Vercel/Netlify)
-const supabaseUrl = 'https://rxcvqouzoldeuxlnoswb.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4Y3Zxb3V6b2xkZXV4bG5vc3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0MzU5OTEsImV4cCI6MjA2NDAxMTk5MX0.pzUPf70Np1tWL0KI6xs_FBy20Cv2WJiytNn1VdkU_S0'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn(
