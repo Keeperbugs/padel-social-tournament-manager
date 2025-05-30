@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Player, SkillLevel } from '../types';
 import PlayerForm from './PlayerForm';
-import PlayerCard from './PlayerCard';
+import PlayerCard from './PlayerCard'; // Importa il componente PlayerCard modificato
 import PlayerFilters from './PlayerFilters';
 import { useTournament } from '../contexts/TournamentContext';
 
@@ -16,7 +16,12 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
   onPlayerUpdate,
   onPlayerDelete
 }) => {
-  const { players, tournaments, getPlayerTournament } = useTournament();
+  const { 
+    players, 
+    tournaments, 
+    getPlayerTournament, 
+    getPlayerTournaments // Nuova funzione che restituisce tutti i tornei
+  } = useTournament();
   
   const [showPlayerForm, setShowPlayerForm] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -39,10 +44,12 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
       // Filtro per torneo
       let matchesTournament = true;
       if (filterTournament === 'NONE') {
-        matchesTournament = !getPlayerTournament(player.id);
+        // Non è in nessun torneo
+        matchesTournament = getPlayerTournaments(player.id).length === 0;
       } else if (filterTournament !== 'ALL') {
-        const playerTournament = getPlayerTournament(player.id);
-        matchesTournament = playerTournament?.id === filterTournament;
+        // È in un torneo specifico
+        const playerTournamentsIds = getPlayerTournaments(player.id).map(t => t.id);
+        matchesTournament = playerTournamentsIds.includes(filterTournament);
       }
       
       return matchesSearch && matchesSkill && matchesTournament;
@@ -138,7 +145,7 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
         onSortByChange={setSortBy}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
-        tournaments={activeTournaments}
+        tournaments={tournaments} // Passa tutti i tornei, non solo quelli attivi
         totalPlayers={players.length}
         filteredCount={filteredAndSortedPlayers.length}
       />
@@ -168,7 +175,7 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
             <PlayerCard
               key={player.id}
               player={player}
-              tournament={getPlayerTournament(player.id)}
+              playerTournaments={getPlayerTournaments(player.id)} // Passa l'array di tornei
               onEdit={() => handleEditPlayer(player)}
               onDelete={() => handleDeletePlayer(player.id, `${player.name} ${player.surname}`)}
               onUpdate={onPlayerUpdate}

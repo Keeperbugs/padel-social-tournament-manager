@@ -3,7 +3,7 @@ import { Player, Tournament, SkillLevel } from '../types';
 
 interface PlayerCardProps {
   player: Player;
-  tournament: Tournament | null;
+  playerTournaments: Tournament[]; // Cambiato da singolo tournament a array di tournaments
   onEdit: () => void;
   onDelete: () => void;
   onUpdate: (player: Player) => void;
@@ -11,7 +11,7 @@ interface PlayerCardProps {
 
 const PlayerCard: React.FC<PlayerCardProps> = ({ 
   player, 
-  tournament, 
+  playerTournaments, // Ora è un array di tornei
   onEdit, 
   onDelete, 
   onUpdate 
@@ -181,16 +181,30 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               </div>
             )}
 
-            {/* Torneo attuale */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600 dark:text-slate-400">Torneo:</span>
-              {tournament ? (
-                <span className="text-sm text-primary-600 dark:text-primary-400 font-medium truncate max-w-32">
-                  {tournament.name}
-                </span>
+            {/* Tornei */}
+            <div>
+              <span className="block text-sm text-slate-600 dark:text-slate-400 mb-1">Tornei:</span>
+              {playerTournaments.length > 0 ? (
+                <div className="space-y-1">
+                  {playerTournaments.map(tournament => (
+                    <div 
+                      key={tournament.id} 
+                      className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                      <span className="text-sm text-primary-600 dark:text-primary-400 font-medium truncate">
+                        {tournament.name}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
+                        {tournament.status === 'ACTIVE' ? 'Attivo' : 
+                         tournament.status === 'COMPLETED' ? 'Completato' : 'Bozza'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <span className="text-sm text-slate-500 dark:text-slate-500 italic">
-                  Nessuno
+                <span className="text-sm text-slate-500 dark:text-slate-500 italic block">
+                  Nessun torneo
                 </span>
               )}
             </div>

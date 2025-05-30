@@ -60,6 +60,7 @@ interface TournamentContextType {
   updatePlayer: (player: Player) => Promise<void>;
   deletePlayer: (playerId: string) => Promise<void>;
   getPlayerTournament: (playerId: string) => Tournament | null;
+  getPlayerTournaments: (playerId: string) => Tournament[]; // Nuova funzione
   searchPlayers: (searchTerm: string) => Promise<Player[]>;
   
   // Azioni per le partite
@@ -364,9 +365,23 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const getPlayerTournament = (playerId: string): Tournament | null => {
-    return tournaments.find(tournament => 
-      tournament.playerIds?.includes(playerId) && tournament.status === 'ACTIVE'
-    ) || null;
+    // Cerca prima nel torneo corrente se esiste
+    if (currentTournament && currentTournament.playerIds?.includes(playerId)) {
+      return currentTournament;
+    }
+    
+    // Poi cerca negli altri tornei
+    const playerTournament = tournaments.find(tournament => 
+      tournament.playerIds?.includes(playerId)
+    );
+    
+    return playerTournament || null;
+  };
+
+  const getPlayerTournaments = (playerId: string): Tournament[] => {
+    return tournaments.filter(tournament => 
+      tournament.playerIds?.includes(playerId)
+    );
   };
 
   const generateMatches = async (pairingStrategy: PairingStrategy, matchFormat: MatchFormat) => {
@@ -689,6 +704,7 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
         updatePlayer,
         deletePlayer,
         getPlayerTournament,
+        getPlayerTournaments,
         generateMatches,
         saveMatchResults,
         deleteUncompletedMatches,
