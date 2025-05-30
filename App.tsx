@@ -9,6 +9,7 @@ import PairingsGenerator from './components/PairingsGenerator';
 import ResultsInputModal from './components/ResultsInputModal';
 import RankingsTab from './components/RankingsTab';
 import PlayerSelector from './components/PlayerSelector';
+import PlayersManagementPage from './components/PlayersManagementPage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const AppContent: React.FC = () => {
@@ -176,64 +177,19 @@ const AppContent: React.FC = () => {
         )}
 
         {currentTab === 'players' && (
-          <div className="space-y-6">
-            {!showPlayerForm && (
-              <div className="flex justify-between mb-4">
-                <button 
-                  onClick={handleAddPlayer} 
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 shadow-sm"
-                >
-                  + Aggiungi Giocatore
-                </button>
-                
-                {currentTournament && (
-                  <button 
-                    onClick={calculatePlayerStats} 
-                    className="px-4 py-2 bg-secondary-600 text-white rounded-md hover:bg-secondary-700 dark:bg-secondary-500 dark:hover:bg-secondary-600 shadow-sm"
-                  >
-                    Aggiorna Statistiche
-                  </button>
-                )}
-              </div>
-            )}
-            
-            {showPlayerForm && (
-              <PlayerForm 
-                onSubmit={handlePlayerFormSubmit} 
-                initialData={editingPlayer}
-                onCancel={handlePlayerFormCancel}
-              />
-            )}
-            
-            {currentTournament ? (
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-4 text-primary-700 dark:text-primary-400">
-                  Giocatori del Torneo: {currentTournament.name}
-                </h3>
-                
-                <div className="mb-6">
-                  {/* Visualizza i giocatori selezionati per questo torneo */}
-                  <PlayerSelector
-                    availablePlayers={players}
-                    selectedPlayerIds={currentTournament.playerIds || []}
-                    onSelectionChange={(selectedIds) => {
-                      updateTournament({
-                        ...currentTournament,
-                        playerIds: selectedIds
-                      });
-                    }}
-                    maxSelections={currentTournament.maxPlayers}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 text-center">
-                <p className="text-slate-500 dark:text-slate-400">
-                  Seleziona un torneo per gestire i giocatori.
-                </p>
-              </div>
-            )}
-          </div>
+          <PlayersManagementPage
+            onPlayerFormSubmit={(playerData) => {
+              if (editingPlayer) {
+                updatePlayer({ ...editingPlayer, ...playerData });
+              } else {
+                addPlayer(playerData);
+              }
+              setShowPlayerForm(false);
+              setEditingPlayer(null);
+            }}
+            onPlayerUpdate={(player) => updatePlayer(player)}
+            onPlayerDelete={(playerId) => deletePlayer(playerId)}
+          />
         )}
 
         {currentTab === 'matches' && (

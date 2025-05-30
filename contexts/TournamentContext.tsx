@@ -25,7 +25,11 @@ import {
   getOverallPlayerStatsDB,
   updatePlayerStatsBulkDB,
   getSettingsDB,
-  updateSettingsDB
+  updateSettingsDB,
+  addPlayerDB,
+  updatePlayerDB,
+  deletePlayerDB,
+  searchPlayersDB
 } from '../lib/supabaseClient';
 import { DEFAULT_SETTINGS } from '../constants';
 
@@ -52,6 +56,11 @@ interface TournamentContextType {
   
   // Azioni per i giocatori
   fetchPlayers: () => Promise<void>;
+  addPlayer: (player: Omit<Player, 'id' | 'matchesPlayed' | 'matchesWon' | 'setsWon' | 'setsLost' | 'gamesWon' | 'gamesLost' | 'points'>) => Promise<void>;
+  updatePlayer: (player: Player) => Promise<void>;
+  deletePlayer: (playerId: string) => Promise<void>;
+  getPlayerTournament: (playerId: string) => Tournament | null;
+  searchPlayers: (searchTerm: string) => Promise<Player[]>;
   
   // Azioni per le partite
   generateMatches: (
@@ -267,6 +276,97 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const addPlayer = async (playerData: Omit<Player, 'id' | 'matchesPlayed' | 'matchesWon' | 'setsWon' | 'setsLost' | 'gamesWon' | 'gamesLost' | 'points'>) => {
+    setIsLoading(true);
+    try {
+      const newPlayer = await addPlayerDB(playerData);
+      if (newPlayer) {
+        setPlayers([...players, newPlayer]);
+        
+        // Ricarica le statistiche generali
+        const fetchedOverallStats = await getOverallPlayerStatsDB();
+        setOverallPlayerStats(fetchedOverallStats);
+      }
+    } catch (err) {
+      console.error("Errore durante l'aggiunta del giocatore:", err);
+      setError("Impossibile aggiungere il giocatore.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updatePlayer = async (player: Player) => {
+    setIsLoading(true);
+    try {
+      const updatedPlayer = await updatePlayerDB(player);
+      if (updatedPlayer) {
+        setPlayers(players.map(p => p.id === player.id ? updatedPlayer : p));
+        
+        // Aggiorna anche le statistiche se necessario
+        if (currentTournament && currentTournament.playerIds?.includes(player.id)) {
+          setTournamentPlayerStats(tournamentPlayerStats.map(p => 
+            p.id === player.id ? { ...p, ...updatedPlayer } : p
+          ));
+        }
+        
+        setOverallPlayerStats(overallPlayerStats.map(p => 
+          p.id === player.id ? { ...p, ...updatedPlayer } : p
+        ));
+      }
+    } catch (err) {
+      console.error("Errore durante l'aggiornamento del giocatore:", err);
+      setError("Impossibile aggiornare il giocatore.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deletePlayer = async (playerId: string) => {
+    setIsLoading(true);
+    try {
+      const success = await deletePlayerDB(playerId);
+      if (success) {
+        setPlayers(players.filter(p => p.id !== playerId));
+        
+        // Rimuovi dalle statistiche
+        setTournamentPlayerStats(tournamentPlayerStats.filter(p => p.id !== playerId));
+        setOverallPlayerStats(overallPlayerStats.filter(p => p.id !== playerId));
+        
+        // Rimuovi dai tornei se presente
+        if (currentTournament && currentTournament.playerIds?.includes(playerId)) {
+          const updatedTournament = {
+            ...currentTournament,
+            playerIds: currentTournament.playerIds.filter(id => id !== playerId)
+          };
+          await updateTournament(updatedTournament);
+        }
+        
+        // Aggiorna anche tutti gli altri tornei
+        const updatedTournaments = tournaments.map(tournament => {
+          if (tournament.playerIds?.includes(playerId)) {
+            return {
+              ...tournament,
+              playerIds: tournament.playerIds.filter(id => id !== playerId)
+            };
+          }
+          return tournament;
+        });
+        setTournaments(updatedTournaments);
+      }
+    } catch (err) {
+      console.error("Errore durante l'eliminazione del giocatore:", err);
+      setError("Impossibile eliminare il giocatore.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getPlayerTournament = (playerId: string): Tournament | null => {
+    return tournaments.find(tournament => 
+      tournament.playerIds?.includes(playerId) && tournament.status === 'ACTIVE'
+    ) || null;
   };
 
   const generateMatches = async (pairingStrategy: PairingStrategy, matchFormat: MatchFormat) => {
@@ -585,6 +685,10 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
         updateTournament,
         deleteTournament,
         fetchPlayers,
+        addPlayer,
+        updatePlayer,
+        deletePlayer,
+        getPlayerTournament,
         generateMatches,
         saveMatchResults,
         deleteUncompletedMatches,
