@@ -11,10 +11,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pointsWin: 3,
   pointsTieBreakLoss: 1,
   pointsLoss: 0,
-  currentTournamentRound: 1, // Round iniziale
 };
 
 export const TAB_NAMES: { [key: string]: string } = {
+  tournaments: 'Tornei',
   players: 'Giocatori',
   matches: 'Incontri',
   rankings: 'Classifiche',

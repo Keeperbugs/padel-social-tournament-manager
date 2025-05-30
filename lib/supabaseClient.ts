@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { AppSettings, Player, Match, SETTINGS_ID } from '../types';
+import { AppSettings, Player, Match, Tournament, PlayerStats, SETTINGS_ID } from '../types';
 
-// Queste variabili dovrebbero essere configurate nel tuo ambiente (es. .env file o nelle impostazioni di Vercel/Netlify)
+// Queste variabili dovrebbero essere configurate nel tuo ambiente
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -10,21 +10,10 @@ if (!supabaseUrl || !supabaseKey) {
     "Supabase URL o Anon Key non definite. L'app funzionerà senza persistenza backend. " +
     "Configura SUPABASE_URL e SUPABASE_ANON_KEY nel tuo ambiente se desideri utilizzare Supabase."
   );
-  
-  // @ts-ignore Property 'env' does not exist on type 'ImportMeta'.
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) {
-    // console.warn("Suggerimento: definisci le variabili d'ambiente per abilitare Supabase.");
-  }
 }
 
 // Esporta il client Supabase. Sarà `null` se le chiavi non sono definite.
 export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-// Utility per convertire stringhe UUID in formato corretto per Supabase
-// Rimuove i trattini se presenti (alcuni database UUID non li accettano)
-const formatUUID = (id: string): string => {
-  return id.replace(/-/g, '');
-};
 
 // Settings
 export const getSettingsDB = async (): Promise<AppSettings | null> => {
@@ -122,12 +111,314 @@ export const deletePlayerDB = async (playerId: string): Promise<boolean> => {
   return true;
 };
 
+// Tournaments
+export const getTournamentsDB = async (): Promise<Tournament[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) { 
+    console.error('Error fetching tournaments:', error); 
+    return []; 
+  }
+  
+  // Converti i nomi delle colonne dal formato snake_case al formato camelCase
+  return data.map(tournament => ({
+    id: tournament.id,
+    name: tournament.name,
+    description: tournament.description,
+    startDate: tournament.start_date,
+    endDate: tournament.end_date,
+    days: tournament.days,
+    matchesPerDay: tournament.matches_per_day,
+    maxPlayers: tournament.max_players,
+    currentRound: tournament.current_round,
+    status: tournament.status,
+    playerIds: tournament.player_ids || [],
+    created_at: tournament.created_at,
+    updated_at: tournament.updated_at
+  })) as Tournament[];
+};
+
+export const getTournamentByIdDB = async (tournamentId: string): Promise<Tournament | null> => {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', tournamentId)
+    .single();
+    
+  if (error) { 
+    console.error('Error fetching tournament:', error); 
+    return null; 
+  }
+  
+  // Converti i nomi delle colonne dal formato snake_case al formato camelCase
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    days: data.days,
+    matchesPerDay: data.matches_per_day,
+    maxPlayers: data.max_players,
+    currentRound: data.current_round,
+    status: data.status,
+    playerIds: data.player_ids || [],
+    created_at: data.created_at,
+    updated_at: data.updated_at
+  } as Tournament;
+};
+
+export const addTournamentDB = async (tournament: Omit<Tournament, 'id' | 'created_at' | 'updated_at'>): Promise<Tournament | null> => {
+  if (!supabase) return null;
+  
+  // Converti i nomi delle proprietà dal formato camelCase al formato snake_case
+  const tournamentData = {
+    name: tournament.name,
+    description: tournament.description,
+    start_date: tournament.startDate,
+    end_date: tournament.endDate,
+    days: tournament.days,
+    matches_per_day: tournament.matchesPerDay,
+    max_players: tournament.maxPlayers,
+    current_round: tournament.currentRound,
+    status: tournament.status,
+    player_ids: tournament.playerIds || []
+  };
+  
+  const { data, error } = await supabase
+    .from('tournaments')
+    .insert(tournamentData)
+    .select()
+    .single();
+    
+  if (error) { 
+    console.error('Error adding tournament:', error); 
+    return null; 
+  }
+  
+  // Converti i nomi delle colonne dal formato snake_case al formato camelCase
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    days: data.days,
+    matchesPerDay: data.matches_per_day,
+    maxPlayers: data.max_players,
+    currentRound: data.current_round,
+    status: data.status,
+    playerIds: data.player_ids || [],
+    created_at: data.created_at,
+    updated_at: data.updated_at
+  } as Tournament;
+};
+
+export const updateTournamentDB = async (tournament: Tournament): Promise<Tournament | null> => {
+  if (!supabase) return null;
+  
+  // Converti i nomi delle proprietà dal formato camelCase al formato snake_case
+  const tournamentData = {
+    id: tournament.id,
+    name: tournament.name,
+    description: tournament.description,
+    start_date: tournament.startDate,
+    end_date: tournament.endDate,
+    days: tournament.days,
+    matches_per_day: tournament.matchesPerDay,
+    max_players: tournament.maxPlayers,
+    current_round: tournament.currentRound,
+    status: tournament.status,
+    player_ids: tournament.playerIds || []
+  };
+  
+  const { data, error } = await supabase
+    .from('tournaments')
+    .update(tournamentData)
+    .eq('id', tournament.id)
+    .select()
+    .single();
+    
+  if (error) { 
+    console.error('Error updating tournament:', error); 
+    return null; 
+  }
+  
+  // Converti i nomi delle colonne dal formato snake_case al formato camelCase
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    days: data.days,
+    matchesPerDay: data.matches_per_day,
+    maxPlayers: data.max_players,
+    currentRound: data.current_round,
+    status: data.status,
+    playerIds: data.player_ids || [],
+    created_at: data.created_at,
+    updated_at: data.updated_at
+  } as Tournament;
+};
+
+export const deleteTournamentDB = async (tournamentId: string): Promise<boolean> => {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from('tournaments')
+    .delete()
+    .eq('id', tournamentId);
+    
+  if (error) {
+    console.error('Error deleting tournament:', error);
+    return false;
+  }
+  return true;
+};
+
+// Player Stats
+export const getPlayerStatsByTournamentDB = async (tournamentId: string): Promise<PlayerStats[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('player_stats')
+    .select(`
+      id,
+      player_id,
+      tournament_id,
+      matches_played,
+      matches_won,
+      sets_won,
+      sets_lost,
+      games_won,
+      games_lost,
+      points,
+      created_at,
+      updated_at,
+      players:player_id (*)
+    `)
+    .eq('tournament_id', tournamentId);
+    
+  if (error) { 
+    console.error('Error fetching player stats:', error); 
+    return []; 
+  }
+  
+  // Converti i nomi delle colonne dal formato snake_case al formato camelCase
+  return data.map(stat => ({
+    id: stat.id,
+    tournamentId: stat.tournament_id,
+    ...stat.players,
+    matchesPlayed: stat.matches_played,
+    matchesWon: stat.matches_won,
+    setsWon: stat.sets_won,
+    setsLost: stat.sets_lost,
+    gamesWon: stat.games_won,
+    gamesLost: stat.games_lost,
+    points: stat.points,
+  })) as PlayerStats[];
+};
+
+export const getOverallPlayerStatsDB = async (): Promise<PlayerStats[]> => {
+  if (!supabase) return [];
+  // Ottieni tutte le statistiche e raggruppale per giocatore
+  const { data, error } = await supabase
+    .from('player_stats')
+    .select(`
+      player_id,
+      matches_played,
+      matches_won,
+      sets_won,
+      sets_lost,
+      games_won,
+      games_lost,
+      points,
+      players:player_id (*)
+    `);
+    
+  if (error) { 
+    console.error('Error fetching overall player stats:', error); 
+    return []; 
+  }
+  
+  // Raggruppa per giocatore e somma le statistiche
+  const playerStatsMap = new Map<string, PlayerStats>();
+  
+  data.forEach(stat => {
+    const playerId = stat.player_id;
+    const player = stat.players;
+    
+    if (!playerStatsMap.has(playerId)) {
+      playerStatsMap.set(playerId, {
+        id: playerId,
+        tournamentId: 'overall',
+        ...player,
+        matchesPlayed: 0,
+        matchesWon: 0,
+        setsWon: 0,
+        setsLost: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        points: 0
+      });
+    }
+    
+    const currentStats = playerStatsMap.get(playerId)!;
+    currentStats.matchesPlayed += stat.matches_played;
+    currentStats.matchesWon += stat.matches_won;
+    currentStats.setsWon += stat.sets_won;
+    currentStats.setsLost += stat.sets_lost;
+    currentStats.gamesWon += stat.games_won;
+    currentStats.gamesLost += stat.games_lost;
+    currentStats.points += stat.points;
+  });
+  
+  return Array.from(playerStatsMap.values());
+};
+
+export const updatePlayerStatsBulkDB = async (playerStats: PlayerStats[]): Promise<PlayerStats[]> => {
+  if (!supabase) return [];
+  
+  // Converti le statistiche nel formato del database
+  const statsToUpsert = playerStats.map(stat => ({
+    player_id: stat.id,
+    tournament_id: stat.tournamentId,
+    matches_played: stat.matchesPlayed,
+    matches_won: stat.matchesWon,
+    sets_won: stat.setsWon,
+    sets_lost: stat.setsLost,
+    games_won: stat.gamesWon,
+    games_lost: stat.gamesLost,
+    points: stat.points
+  }));
+  
+  const { data, error } = await supabase
+    .from('player_stats')
+    .upsert(statsToUpsert, { 
+      onConflict: 'player_id,tournament_id',
+      returning: 'minimal'
+    });
+    
+  if (error) { 
+    console.error('Error updating player stats:', error); 
+    return []; 
+  }
+  
+  // Restituisci le statistiche originali dato che non abbiamo i dati completi dal database
+  return playerStats;
+};
+
 // Matches
-export const getMatchesDB = async (): Promise<Match[]> => {
+export const getMatchesByTournamentDB = async (tournamentId: string): Promise<Match[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('matches')
     .select('*')
+    .eq('tournament_id', tournamentId)
     .order('created_at', { ascending: false });
     
   if (error) { 
@@ -138,9 +429,12 @@ export const getMatchesDB = async (): Promise<Match[]> => {
   // Converti i campi JSONB in oggetti JavaScript
   const matches = data.map(match => ({
     ...match,
+    tournamentId: match.tournament_id,
     team1: typeof match.team1 === 'string' ? JSON.parse(match.team1) : match.team1,
     team2: typeof match.team2 === 'string' ? JSON.parse(match.team2) : match.team2,
-    scores: typeof match.scores === 'string' ? JSON.parse(match.scores) : (match.scores || [])
+    scores: typeof match.scores === 'string' ? JSON.parse(match.scores) : (match.scores || []),
+    matchFormat: match.matchformat, // Mappa matchformat -> matchFormat
+    winnerTeamId: match.winnerteamid // Mappa winnerteamid -> winnerTeamId
   }));
   
   return matches as Match[];
@@ -152,12 +446,9 @@ export const addMatchesDB = async (matches: Match[]): Promise<Match[]> => {
   try {
     // Preparazione dei dati per l'inserimento
     const matchesToInsert = matches.map(match => {
-      // Rimuovi l'id generato dal client per farlo generare dal database se non è necessario mantenere l'id specifico
-      // const { id, ...matchWithoutId } = match;
-      
       return {
-        // Se vuoi mantenere l'id generato dal client:
-        id: match.id, // Supabase potrebbe avere problemi se l'id non è in formato UUID valido
+        id: match.id,
+        tournament_id: match.tournamentId,
         round: match.round,
         team1: match.team1, // Supabase gestisce automaticamente la conversione in JSONB
         team2: match.team2,
@@ -165,7 +456,7 @@ export const addMatchesDB = async (matches: Match[]): Promise<Match[]> => {
         status: match.status,
         matchformat: match.matchFormat,
         court: match.court,
-        winnerteamid: match.winnerTeamId // Potrebbe essere necessario formattare l'UUID
+        winnerteamid: match.winnerTeamId // Ora dovrebbe essere di tipo text, quindi è ok
       };
     });
     
@@ -184,6 +475,7 @@ export const addMatchesDB = async (matches: Match[]): Promise<Match[]> => {
     // Converti i dati restituiti nel formato previsto dall'app
     const savedMatches = data.map(match => ({
       id: match.id,
+      tournamentId: match.tournament_id,
       round: match.round,
       team1: match.team1,
       team2: match.team2,
@@ -207,34 +499,19 @@ export const updateMatchDB = async (match: Match): Promise<Match | null> => {
   try {
     console.log("Tentativo di aggiornamento match:", match);
     
-    // Modifica qui: Non passare direttamente winnerTeamId ma lo imposteremo in modo condizionale
+    // Prepara i dati per l'aggiornamento
     const matchToUpdate = {
       id: match.id,
+      tournament_id: match.tournamentId,
       round: match.round,
       team1: match.team1,
       team2: match.team2,
       scores: match.scores || [],
       status: match.status,
       matchformat: match.matchFormat,
-      court: match.court
-      // winnerteamid: rimosso da qui
+      court: match.court,
+      winnerteamid: match.winnerTeamId // Ora dovrebbe essere di tipo text, quindi è ok
     };
-    
-    // Gestione speciale per winnerTeamId
-    if (match.winnerTeamId) {
-      // Verifica se il team vincitore è team1 o team2
-      if (match.winnerTeamId === match.team1.id) {
-        // Se il vincitore è team1, usa l'ID del player1 di team1 come valore per winnerteamid
-        // In alternativa, potresti usare null o un valore speciale per indicare che team1 ha vinto
-        matchToUpdate['winnerteamid'] = match.team1.player1.id; // UUID valido
-      } else if (match.winnerTeamId === match.team2.id) {
-        // Se il vincitore è team2, usa l'ID del player1 di team2 come valore per winnerteamid
-        matchToUpdate['winnerteamid'] = match.team2.player1.id; // UUID valido
-      } else {
-        // Se winnerTeamId non corrisponde a nessuno dei due team, rimuovilo
-        console.warn("winnerTeamId non corrisponde a nessun team:", match.winnerTeamId);
-      }
-    }
     
     console.log("Dati preparati per l'aggiornamento:", matchToUpdate);
     
@@ -251,9 +528,9 @@ export const updateMatchDB = async (match: Match): Promise<Match | null> => {
     }
     
     // Converti i dati restituiti nel formato previsto dall'app
-    // Importante: Mantieni il winnerTeamId originale qui
     const updatedMatch = {
       id: data.id,
+      tournamentId: data.tournament_id,
       round: data.round,
       team1: data.team1,
       team2: data.team2,
@@ -261,7 +538,7 @@ export const updateMatchDB = async (match: Match): Promise<Match | null> => {
       status: data.status,
       matchFormat: data.matchformat,
       court: data.court,
-      winnerTeamId: match.winnerTeamId // Usa il valore originale, NON data.winnerteamid
+      winnerTeamId: data.winnerteamid
     } as Match;
     
     return updatedMatch;
@@ -271,12 +548,13 @@ export const updateMatchDB = async (match: Match): Promise<Match | null> => {
   }
 };
 
-export const deleteMatchesByStatusDB = async (statusToKeep: 'COMPLETED'): Promise<boolean> => {
+export const deleteMatchesByTournamentAndStatusDB = async (tournamentId: string, statusToKeep: 'COMPLETED'): Promise<boolean> => {
   if (!supabase) return false;
   // Cancella le partite che NON hanno lo status 'COMPLETED'
   const { error } = await supabase
     .from('matches')
     .delete()
+    .eq('tournament_id', tournamentId)
     .neq('status', statusToKeep);
     
   if (error) {
@@ -286,15 +564,15 @@ export const deleteMatchesByStatusDB = async (statusToKeep: 'COMPLETED'): Promis
   return true;
 };
 
-export const deleteAllMatchesDB = async (): Promise<boolean> => {
+export const deleteAllMatchesByTournamentDB = async (tournamentId: string): Promise<boolean> => {
   if (!supabase) return false;
   const { error } = await supabase
     .from('matches')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000'); // Usa un UUID valido come trucco
+    .eq('tournament_id', tournamentId);
     
   if (error) {
-    console.error('Error deleting all matches:', error);
+    console.error(`Error deleting all matches for tournament ${tournamentId}:`, error);
     return false;
   }
   return true;

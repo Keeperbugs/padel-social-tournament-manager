@@ -21,6 +21,33 @@ export interface Player {
   created_at?: string; // Aggiunto per Supabase
 }
 
+export interface Tournament {
+  id: string;
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  days: number;
+  matchesPerDay: number;
+  maxPlayers: number;
+  currentRound: number;
+  status: 'ACTIVE' | 'COMPLETED' | 'DRAFT';
+  playerIds: string[]; // IDs dei giocatori partecipanti
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlayerStats extends Omit<Player, 'matchesPlayed' | 'matchesWon' | 'setsWon' | 'setsLost' | 'gamesWon' | 'gamesLost' | 'points'> {
+  tournamentId: string;
+  matchesPlayed: number;
+  matchesWon: number;
+  setsWon: number;
+  setsLost: number;
+  gamesWon: number;
+  gamesLost: number;
+  points: number;
+}
+
 export interface Team {
   id: string; 
   player1: Player;
@@ -39,16 +66,17 @@ export enum MatchFormat {
 }
 
 export interface Match {
-  id: string; // UUID generato dal client o da Supabase
+  id: string;
+  tournamentId: string;
   round: number;
-  team1: Team; // JSONB in Supabase
-  team2: Team; // JSONB in Supabase
+  team1: Team;
+  team2: Team;
   court?: string;
-  scores: MatchSetScore[]; // JSONB in Supabase
+  scores: MatchSetScore[];
   winnerTeamId?: string;
   status: 'PENDING' | 'COMPLETED' | 'IN_PROGRESS';
   matchFormat: MatchFormat;
-  created_at?: string; // Aggiunto per Supabase
+  created_at?: string;
 }
 
 export enum PairingStrategy {
@@ -68,8 +96,8 @@ export interface AppSettings {
   pointsWin: number;
   pointsTieBreakLoss: number;
   pointsLoss: number;
-  currentTournamentRound: number; // Aggiunto per persistere il round corrente
-  updated_at?: string; // Aggiunto per Supabase
+  currentTournamentId?: string; // Torneo attualmente selezionato
+  updated_at?: string;
 }
 
-export type TabKey = 'players' | 'matches' | 'rankings';
+export type TabKey = 'tournaments' | 'players' | 'matches' | 'rankings';
