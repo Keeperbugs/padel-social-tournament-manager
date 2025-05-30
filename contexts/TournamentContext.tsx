@@ -522,12 +522,15 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       const savedMatch = await updateMatchDB(updatedMatch);
       if (savedMatch) {
-        // Aggiorna lo stato
+        // Aggiorna lo stato locale delle partite
         setMatches(matches.map(m => m.id === matchId ? savedMatch : m));
         
         // Se la partita è stata completata, aggiorna le statistiche
         if (savedMatch.status === 'COMPLETED' && savedMatch.winnerTeamId) {
           await calculatePlayerStats();
+          
+          // Notifica all'utente che le statistiche sono state aggiornate
+          console.log("Risultati salvati e statistiche aggiornate.");
         }
       }
     } catch (err) {
@@ -597,17 +600,34 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
         
         let team1SetsWon = 0;
         let team2SetsWon = 0;
+        let team1GamesWon = 0;
+        let team2GamesWon = 0;
         
         if (match.matchFormat === MatchFormat.GOLDEN_POINT) {
-          if (match.winnerTeamId === match.team1.id) team1SetsWon = 1;
-          if (match.winnerTeamId === match.team2.id) team2SetsWon = 1;
+          // Per il Golden Point, conta come un set vinto
+          if (match.winnerTeamId === match.team1.id) {
+            team1SetsWon = 1;
+            team2SetsWon = 0;
+          } else if (match.winnerTeamId === match.team2.id) {
+            team1SetsWon = 0;
+            team2SetsWon = 1;
+          }
         } else {
+          // Per il Best of Three, conta i set e i game
           match.scores.forEach(set => {
-            const t1s = Number(set.team1Score);
-            const t2s = Number(set.team2Score);
-            if (!isNaN(t1s) && !isNaN(t2s)) {
+            // Controlla se i punteggi sono numeri validi
+            const t1s = typeof set.team1Score === 'number' ? set.team1Score : -1;
+            const t2s = typeof set.team2Score === 'number' ? set.team2Score : -1;
+            
+            // Se entrambi i punteggi sono validi
+            if (t1s >= 0 && t2s >= 0) {
+              // Conteggio dei set
               if (t1s > t2s) team1SetsWon++;
               else if (t2s > t1s) team2SetsWon++;
+              
+              // Conteggio dei game
+              team1GamesWon += t1s;
+              team2GamesWon += t2s;
             }
           });
         }
@@ -643,8 +663,17 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
           }
           
           // Aggiorna i set vinti e persi
-          playerStats.setsWon += isTeam1Player ? team1SetsWon : team2SetsWon;
-          playerStats.setsLost += isTeam1Player ? team2SetsWon : team1SetsWon;
+          if (isTeam1Player) {
+            playerStats.setsWon += team1SetsWon;
+            playerStats.setsLost += team2SetsWon;
+            playerStats.gamesWon += team1GamesWon;
+            playerStats.gamesLost += team2GamesWon;
+          } else {
+            playerStats.setsWon += team2SetsWon;
+            playerStats.setsLost += team1SetsWon;
+            playerStats.gamesWon += team2GamesWon;
+            playerStats.gamesLost += team1GamesWon;
+          }
           
           playerStatsMap.set(playerId, playerStats);
         });
@@ -653,15 +682,38 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
       // Converti la mappa in un array
       const playerStats = Array.from(playerStatsMap.values());
       
+      // Aggiorna anche le statistiche complessive dei giocatori
+      const updatedPlayers = [...players];
+      playerStats.forEach(stat => {
+        const playerIndex = updatedPlayers.findIndex(p => p.id === stat.id);
+        if (playerIndex >= 0) {
+          const player = updatedPlayers[playerIndex];
+          // Aggiorna le statistiche complessive
+          updatedPlayers[playerIndex] = {
+            ...player,
+            matchesPlayed: stat.matchesPlayed,
+            matchesWon: stat.matchesWon,
+            setsWon: stat.setsWon,
+            setsLost: stat.setsLost,
+            gamesWon: stat.gamesWon,
+            gamesLost: stat.gamesLost,
+            points: stat.points
+          };
+        }
+      });
+      
       // Salva le statistiche nel database
       await updatePlayerStatsBulkDB(playerStats);
       
-      // Aggiorna lo stato
+      // Aggiorna lo stato locale
       setTournamentPlayerStats(playerStats);
+      setPlayers(updatedPlayers);
       
       // Ricarica le statistiche generali
       const fetchedOverallStats = await getOverallPlayerStatsDB();
       setOverallPlayerStats(fetchedOverallStats);
+      
+      console.log("Statistiche dei giocatori aggiornate con successo:", playerStats);
       
     } catch (err) {
       console.error("Errore durante il calcolo delle statistiche:", err);

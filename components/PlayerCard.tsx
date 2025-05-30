@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Player, Tournament, SkillLevel } from '../types';
+import { Player, Tournament, SkillLevel, PlayerStats } from '../types';
 
 interface PlayerCardProps {
   player: Player;
-  playerTournaments: Tournament[]; // Cambiato da singolo tournament a array di tournaments
+  playerTournaments: Tournament[];
+  playerStats?: PlayerStats[]; // Aggiunto per mostrare le statistiche specifiche per torneo
   onEdit: () => void;
   onDelete: () => void;
   onUpdate: (player: Player) => void;
@@ -11,13 +12,16 @@ interface PlayerCardProps {
 
 const PlayerCard: React.FC<PlayerCardProps> = ({ 
   player, 
-  playerTournaments, // Ora è un array di tornei
+  playerTournaments,
+  playerStats = [], // Default a un array vuoto
   onEdit, 
   onDelete, 
   onUpdate 
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPlayer, setEditedPlayer] = useState<Player>({ ...player });
+  // Stato per mostrare statistiche dettagliate di un torneo specifico
+  const [expandedTournamentId, setExpandedTournamentId] = useState<string | null>(null);
 
   const handleQuickEdit = () => {
     setIsEditing(true);
@@ -45,8 +49,41 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     }
   };
 
-  const winRate = player.matchesPlayed > 0 ? ((player.matchesWon / player.matchesPlayed) * 100).toFixed(1) : '0.0';
-  const setRatio = player.setsLost > 0 ? (player.setsWon / player.setsLost).toFixed(2) : player.setsWon > 0 ? '∞' : '0.00';
+  // Calcola statistiche complessive del giocatore
+  const totalStats = {
+    matchesPlayed: player.matchesPlayed || 0,
+    matchesWon: player.matchesWon || 0,
+    setsWon: player.setsWon || 0,
+    setsLost: player.setsLost || 0,
+    gamesWon: player.gamesWon || 0,
+    gamesLost: player.gamesLost || 0,
+    points: player.points || 0,
+  };
+
+  // Calcola il winRate e il setRatio
+  const winRate = totalStats.matchesPlayed > 0 
+    ? ((totalStats.matchesWon / totalStats.matchesPlayed) * 100).toFixed(1) 
+    : '0.0';
+    
+  const setRatio = totalStats.setsLost > 0 
+    ? (totalStats.setsWon / totalStats.setsLost).toFixed(2) 
+    : totalStats.setsWon > 0 
+      ? '∞' 
+      : '0.00';
+
+  // Trova le statistiche specifiche per un torneo
+  const getTournamentStats = (tournamentId: string) => {
+    return playerStats.find(s => s.tournamentId === tournamentId) || null;
+  };
+
+  // Espandi/chiudi le statistiche per un torneo
+  const toggleTournamentStats = (tournamentId: string) => {
+    if (expandedTournamentId === tournamentId) {
+      setExpandedTournamentId(null);
+    } else {
+      setExpandedTournamentId(tournamentId);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -186,21 +223,68 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               <span className="block text-sm text-slate-600 dark:text-slate-400 mb-1">Tornei:</span>
               {playerTournaments.length > 0 ? (
                 <div className="space-y-1">
-                  {playerTournaments.map(tournament => (
-                    <div 
-                      key={tournament.id} 
-                      className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-700 rounded px-2 py-1"
-                    >
-                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                      <span className="text-sm text-primary-600 dark:text-primary-400 font-medium truncate">
-                        {tournament.name}
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
-                        {tournament.status === 'ACTIVE' ? 'Attivo' : 
-                         tournament.status === 'COMPLETED' ? 'Completato' : 'Bozza'}
-                      </span>
-                    </div>
-                  ))}
+                  {playerTournaments.map(tournament => {
+                    const tournamentStats = getTournamentStats(tournament.id);
+                    const isExpanded = expandedTournamentId === tournament.id;
+                    
+                    return (
+                      <div key={tournament.id}>
+                        <div 
+                          className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-700 rounded px-2 py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
+                          onClick={() => toggleTournamentStats(tournament.id)}
+                        >
+                          <span className={`h-2 w-2 rounded-full ${
+                            tournament.status === 'ACTIVE' ? 'bg-green-500' : 
+                            tournament.status === 'COMPLETED' ? 'bg-blue-500' : 'bg-gray-500'
+                          }`}></span>
+                          <span className="text-sm text-primary-600 dark:text-primary-400 font-medium truncate">
+                            {tournament.name}
+                          </span>
+                          {tournamentStats && tournamentStats.points > 0 && (
+                            <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 ml-auto">
+                              {tournamentStats.points} pt
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {tournament.status === 'ACTIVE' ? 'Attivo' : 
+                             tournament.status === 'COMPLETED' ? 'Completato' : 'Bozza'}
+                          </span>
+                          <svg 
+                            className={`w-4 h-4 text-slate-400 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                        
+                        {/* Statistiche del torneo espanso */}
+                        {isExpanded && tournamentStats && (
+                          <div className="mt-1 ml-4 p-2 bg-slate-100 dark:bg-slate-800 rounded text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Partite:</span>
+                                <span className="ml-1 font-medium">{tournamentStats.matchesWon}/{tournamentStats.matchesPlayed}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Set:</span>
+                                <span className="ml-1 font-medium">{tournamentStats.setsWon}/{tournamentStats.setsLost}</span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-slate-500 dark:text-slate-400">Win Rate:</span>
+                                <span className="ml-1 font-medium text-green-600 dark:text-green-400">
+                                  {tournamentStats.matchesPlayed > 0 
+                                    ? ((tournamentStats.matchesWon / tournamentStats.matchesPlayed) * 100).toFixed(1) 
+                                    : '0.0'}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <span className="text-sm text-slate-500 dark:text-slate-500 italic block">
@@ -209,16 +293,16 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               )}
             </div>
 
-            {/* Statistiche */}
+            {/* Statistiche complessive */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
               <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Statistiche
+                Statistiche Complessive
               </h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-slate-50 dark:bg-slate-700 p-2 rounded">
                   <div className="text-slate-600 dark:text-slate-400">Punti</div>
                   <div className="font-semibold text-lg text-primary-600 dark:text-primary-400">
-                    {player.points}
+                    {totalStats.points}
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700 p-2 rounded">
@@ -230,9 +314,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                 <div className="bg-slate-50 dark:bg-slate-700 p-2 rounded">
                   <div className="text-slate-600 dark:text-slate-400">Partite</div>
                   <div className="font-medium">
-                    <span className="text-green-600 dark:text-green-400">{player.matchesWon}</span>
+                    <span className="text-green-600 dark:text-green-400">{totalStats.matchesWon}</span>
                     <span className="text-slate-400 mx-1">/</span>
-                    <span>{player.matchesPlayed}</span>
+                    <span>{totalStats.matchesPlayed}</span>
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700 p-2 rounded">
@@ -248,11 +332,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
               <div className="flex justify-between">
                 <span>Set vinti/persi:</span>
-                <span>{player.setsWon}/{player.setsLost}</span>
+                <span>{totalStats.setsWon}/{totalStats.setsLost}</span>
               </div>
               <div className="flex justify-between">
                 <span>Game vinti/persi:</span>
-                <span>{player.gamesWon}/{player.gamesLost}</span>
+                <span>{totalStats.gamesWon}/{totalStats.gamesLost}</span>
               </div>
             </div>
           </>

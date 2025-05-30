@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Player, SkillLevel } from '../types';
 import PlayerForm from './PlayerForm';
-import PlayerCard from './PlayerCard'; // Importa il componente PlayerCard modificato
+import PlayerCard from './PlayerCard';
 import PlayerFilters from './PlayerFilters';
 import { useTournament } from '../contexts/TournamentContext';
 
@@ -19,8 +19,9 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
   const { 
     players, 
     tournaments, 
-    getPlayerTournament, 
-    getPlayerTournaments // Nuova funzione che restituisce tutti i tornei
+    getPlayerTournaments,
+    tournamentPlayerStats,
+    overallPlayerStats
   } = useTournament();
   
   const [showPlayerForm, setShowPlayerForm] = useState(false);
@@ -30,6 +31,12 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
   const [filterTournament, setFilterTournament] = useState<string | 'ALL' | 'NONE'>('ALL');
   const [sortBy, setSortBy] = useState<'name' | 'skillLevel' | 'points' | 'matchesWon'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Ottieni le statistiche specifiche per un giocatore
+  const getPlayerStats = (playerId: string) => {
+    // Filtra solo le statistiche del giocatore specifico
+    return tournamentPlayerStats.filter(stat => stat.id === playerId);
+  };
 
   // Filtri e ordinamento
   const filteredAndSortedPlayers = players
@@ -102,8 +109,6 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
     }
   };
 
-  const activeTournaments = tournaments.filter(t => t.status === 'ACTIVE');
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -145,7 +150,7 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
         onSortByChange={setSortBy}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
-        tournaments={tournaments} // Passa tutti i tornei, non solo quelli attivi
+        tournaments={tournaments}
         totalPlayers={players.length}
         filteredCount={filteredAndSortedPlayers.length}
       />
@@ -175,7 +180,8 @@ const PlayersManagementPage: React.FC<PlayersManagementPageProps> = ({
             <PlayerCard
               key={player.id}
               player={player}
-              playerTournaments={getPlayerTournaments(player.id)} // Passa l'array di tornei
+              playerTournaments={getPlayerTournaments(player.id)}
+              playerStats={getPlayerStats(player.id)} // Passa le statistiche per questo giocatore
               onEdit={() => handleEditPlayer(player)}
               onDelete={() => handleDeletePlayer(player.id, `${player.name} ${player.surname}`)}
               onUpdate={onPlayerUpdate}
