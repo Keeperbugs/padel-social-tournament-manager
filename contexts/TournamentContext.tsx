@@ -42,6 +42,9 @@ interface TournamentContextType {
   matches: Match[];
   tournamentPlayerStats: PlayerStats[];
   overallPlayerStats: PlayerStats[];
+  createManualMatch: (team1: Team, team2: Team, matchFormat: MatchFormat, court?: string) => Promise<void>;
+  deleteMatch: (matchId: string) => Promise<void>;
+  updateMatch: (match: Match) => Promise<void>;
   
   // Loading state
   isLoading: boolean;
@@ -562,6 +565,102 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  const createManualMatch = async (team1: Team, team2: Team, matchFormat: MatchFormat, court?: string) => {
+    if (!currentTournament) {
+      setError("Nessun torneo selezionato.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Crea una nuova partita
+      const newMatch: Match = {
+        id: crypto.randomUUID(),
+        tournamentId: currentTournament.id,
+        round: currentTournament.currentRound,
+        team1,
+        team2,
+        scores: [],
+        status: 'PENDING',
+        matchFormat,
+        court
+      };
+      
+      // Salva la partita nel database
+      const savedMatches = await addMatchesDB([newMatch]);
+      
+      if (savedMatches.length > 0) {
+        // Aggiorna lo stato locale delle partite
+        setMatches([...matches, ...savedMatches]);
+      }
+    } catch (err) {
+      console.error("Errore durante la creazione manuale della partita:", err);
+      setError("Impossibile creare la partita manualmente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteMatch = async (matchId: string) => {
+    setIsLoading(true);
+    try {
+      // Prima cerchiamo la partita nel database locale
+      const matchToDelete = matches.find(m => m.id === matchId);
+      if (!matchToDelete) {
+        setError("Partita non trovata.");
+        return;
+      }
+      
+      // Verifica se l'utente vuole davvero eliminare la partita
+      if (!window.confirm("Sei sicuro di voler eliminare questa partita? Questa azione non può essere annullata.")) {
+        setIsLoading(false);
+        return;
+      }
+      
+      // Elimina la partita nel database
+      // Nota: devi creare questa funzione nel file supabaseClient.ts
+      const success = await deleteMatchDB(matchId);
+      
+      if (success) {
+        // Rimuovi la partita dallo stato locale
+        setMatches(matches.filter(m => m.id !== matchId));
+        
+        // Se la partita era completata, ricalcola le statistiche
+        if (matchToDelete.status === 'COMPLETED') {
+          await calculatePlayerStats();
+        }
+      }
+    } catch (err) {
+      console.error("Errore durante l'eliminazione della partita:", err);
+      setError("Impossibile eliminare la partita.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateMatch = async (match: Match) => {
+    setIsLoading(true);
+    try {
+      // Aggiorna la partita nel database
+      const updatedMatch = await updateMatchDB(match);
+      
+      if (updatedMatch) {
+        // Aggiorna lo stato locale
+        setMatches(matches.map(m => m.id === match.id ? updatedMatch : m));
+        
+        // Aggiorna le statistiche se la partita è stata completata
+        if (match.status === 'COMPLETED') {
+          await calculatePlayerStats();
+        }
+      }
+    } catch (err) {
+      console.error("Errore durante l'aggiornamento della partita:", err);
+      setError("Impossibile aggiornare la partita.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const calculatePlayerStats = async () => {
     if (!currentTournament) {
       setError("Nessun torneo selezionato.");
@@ -758,7 +857,10 @@ export const TournamentProvider: React.FC<{ children: ReactNode }> = ({ children
         getPlayerTournament,
         getPlayerTournaments,
         generateMatches,
+        createManualMatch, // Nuova funzione
         saveMatchResults,
+        updateMatch, // Nuova funzione
+        deleteMatch, // Nuova funzione
         deleteUncompletedMatches,
         calculatePlayerStats,
         updateSettings

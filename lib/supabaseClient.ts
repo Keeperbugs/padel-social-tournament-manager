@@ -755,3 +755,17 @@ export const getPlayerStatisticsDB = async (playerId: string, tournamentId?: str
   
   return data[0] || null;
 };
+
+export const deleteMatchDB = async (matchId: string): Promise<boolean> => {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from('matches')
+    .delete()
+    .eq('id', matchId);
+    
+  if (error) {
+    console.error('Error deleting match:', error);
+    return false;
+  }
+  return true;
+};

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Match, MatchSetScore, Team, MatchFormat } from '../types';
 
@@ -11,7 +10,7 @@ interface ResultsInputModalProps {
 
 const ResultsInputModal: React.FC<ResultsInputModalProps> = ({ match, isOpen, onClose, onSaveResults }) => {
   const [currentScores, setCurrentScores] = useState<MatchSetScore[]>([]);
-  const [selectedWinner, setSelectedWinner] = useState<string | undefined>(undefined); // For Golden Point
+  const [selectedWinner, setSelectedWinner] = useState<string | undefined>(undefined); // Per Golden Point
 
   useEffect(() => {
     if (match) {
@@ -87,7 +86,6 @@ const ResultsInputModal: React.FC<ResultsInputModalProps> = ({ match, isOpen, on
     return undefined; // Nessun vincitore ancora o punteggio non valido
   };
 
-
   const handleSave = () => {
     let finalWinnerTeamId = determineWinner();
     let finalScores = currentScores;
@@ -126,7 +124,9 @@ const ResultsInputModal: React.FC<ResultsInputModalProps> = ({ match, isOpen, on
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-lg">
-        <h3 className="text-xl font-semibold mb-4 text-primary-700 dark:text-primary-400">Inserisci Risultati: Round {match.round}</h3>
+        <h3 className="text-xl font-semibold mb-4 text-primary-700 dark:text-primary-400">
+          {match.status === 'COMPLETED' ? 'Modifica Risultati' : 'Inserisci Risultati'}: Round {match.round}
+        </h3>
         <p className="mb-1 text-sm font-medium">{renderTeamName(match.team1)}</p>
         <p className="mb-4 text-sm font-medium vs">vs {renderTeamName(match.team2)}</p>
         <p className="mb-2 text-sm text-slate-600 dark:text-slate-400">Formato: {match.matchFormat}</p>
@@ -188,4 +188,3 @@ const ResultsInputModal: React.FC<ResultsInputModalProps> = ({ match, isOpen, on
 };
 
 export default ResultsInputModal;
-

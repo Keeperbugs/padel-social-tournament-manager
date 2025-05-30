@@ -11,6 +11,9 @@ import RankingsTab from './components/RankingsTab';
 import PlayerSelector from './components/PlayerSelector';
 import PlayersManagementPage from './components/PlayersManagementPage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import MatchCard from './components/MatchCard';
+import TeamEditor from './components/TeamEditor';
+import ManualMatchCreator from './components/ManualMatchCreator';
 
 const AppContent: React.FC = () => {
   const {
@@ -29,8 +32,14 @@ const AppContent: React.FC = () => {
     updateTournament,
     deleteTournament,
     fetchPlayers,
+    addPlayer,
+    updatePlayer,
+    deletePlayer,
     generateMatches,
+    createManualMatch, // Aggiungi questa
     saveMatchResults,
+    updateMatch, // Aggiungi questa
+    deleteMatch, // Aggiungi questa
     deleteUncompletedMatches,
     calculatePlayerStats,
     updateSettings
@@ -67,6 +76,18 @@ const AppContent: React.FC = () => {
 
   const handleTournamentFormCancel = () => {
     setShowTournamentForm(false);
+  };
+
+  const handleCreateManualMatch = (team1: Team, team2: Team, matchFormat: MatchFormat, court?: string) => {
+    createManualMatch(team1, team2, matchFormat, court);
+  };
+
+  const handleUpdateMatch = (match: Match) => {
+    updateMatch(match);
+  };
+
+  const handleDeleteMatch = (matchId: string) => {
+    deleteMatch(matchId);
   };
 
   // Funzioni per gestire i giocatori
@@ -203,8 +224,10 @@ const AppContent: React.FC = () => {
                   }}
                   onSettingsChange={handleSettingChange}
                   onGenerateMatches={handleGenerateMatches}
+                  onCreateManualMatch={createManualMatch}
                   playerCount={(currentTournament?.playerIds || []).length}
                   disabled={matches.some(m => m.status !== 'COMPLETED')}
+                  availablePlayers={players.filter(p => currentTournament.playerIds?.includes(p.id))}
                 />
                 
                 {matches.filter(m => m.status !== 'COMPLETED').length > 0 && (
@@ -220,45 +243,19 @@ const AppContent: React.FC = () => {
                   {matches.length === 0 ? (
                     <div className="col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 text-center">
                       <p className="text-slate-500 dark:text-slate-400">
-                        Nessun incontro generato. Vai su "Genera Incontri".
+                        Nessun incontro generato. Usa l'opzione "Automatico" o "Manuale" per creare incontri.
                       </p>
                     </div>
                   ) : (
                     matches.map(match => (
-                      <div 
-                        key={match.id} 
-                        className={`p-4 bg-white dark:bg-slate-800 shadow-md rounded-lg space-y-2 ${match.status === 'COMPLETED' ? 'opacity-70' : ''}`}
-                      >
-                        <h4 className="text-md font-semibold">Round {match.round} {match.court && `- Campo ${match.court}`}</h4>
-                        <p className="text-sm">
-                          <span className={`${match.winnerTeamId === match.team1.id ? 'font-bold text-green-600 dark:text-green-400' : ''}`}>
-                            {match.team1.player1.nickname || match.team1.player1.name} / {match.team1.player2.nickname || match.team1.player2.name}
-                          </span>
-                          <span className="mx-1">vs</span> 
-                          <span className={`${match.winnerTeamId === match.team2.id ? 'font-bold text-green-600 dark:text-green-400' : ''}`}>
-                            {match.team2.player1.nickname || match.team2.player1.name} / {match.team2.player2.nickname || match.team2.player2.name}
-                          </span>
-                        </p>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {match.scores.map((s, i) => (
-                            <span key={i} className="mr-2">
-                              {(s.team1Score === 'GP' || s.team2Score === 'GP') ? 
-                                (s.team1Score === 'GP' ? `${match.team1.player1.name.charAt(0)}.${match.team1.player2.name.charAt(0)} vince GP` : `${match.team2.player1.name.charAt(0)}.${match.team2.player2.name.charAt(0)} vince GP`) 
-                                : `${s.team1Score}-${s.team2Score}`}
-                            </span>
-                          ))}
-                        </div>
-                        {match.status === 'COMPLETED' ? (
-                          <p className="text-sm font-medium text-green-600 dark:text-green-400">Completato</p>
-                        ) : (
-                          <button 
-                            onClick={() => setMatchForResults(match)} 
-                            className="mt-2 px-3 py-1.5 text-sm bg-primary-500 text-white rounded hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-700"
-                          >
-                            Inserisci Risultato
-                          </button>
-                        )}
-                      </div>
+                      <MatchCard 
+                        key={match.id}
+                        match={match}
+                        onOpenResultsModal={setMatchForResults}
+                        onUpdateMatch={updateMatch}
+                        onDeleteMatch={deleteMatch}
+                        availablePlayers={players.filter(p => currentTournament.playerIds?.includes(p.id))}
+                      />
                     ))
                   )}
                 </div>
