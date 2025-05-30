@@ -150,87 +150,127 @@ const App: React.FC = () => {
     }
   };
 
-  const generateMatches = useCallback(async () => {
-    if (players.length < MIN_PLAYERS_FOR_TOURNAMENT) {
-      alert(`Servono almeno ${MIN_PLAYERS_FOR_TOURNAMENT} giocatori per generare gli incontri.`);
-      return;
-    }
-    if (matches.some(m => m.status !== 'COMPLETED')) {
-        alert("Completa o cancella tutti gli incontri del round corrente prima di generarne di nuovi.");
-        return;
-    }
+const generateMatches = useCallback(async () => {
+  if (players.length < MIN_PLAYERS_FOR_TOURNAMENT) {
+    alert(`Servono almeno ${MIN_PLAYERS_FOR_TOURNAMENT} giocatori per generare gli incontri.`);
+    return;
+  }
+  if (matches.some(m => m.status !== 'COMPLETED')) {
+    alert("Completa o cancella tutti gli incontri del round corrente prima di generarne di nuovi.");
+    return;
+  }
 
-    let availablePlayers = [...players.filter(p => p.skillLevel !== SkillLevel.UNASSIGNED)];
-    if (availablePlayers.length < MIN_PLAYERS_FOR_TOURNAMENT) {
-        alert("Assicurati che almeno 4 giocatori abbiano una fascia di abilità assegnata.");
-        return;
-    }
+  let availablePlayers = [...players.filter(p => p.skillLevel !== SkillLevel.UNASSIGNED)];
+  if (availablePlayers.length < MIN_PLAYERS_FOR_TOURNAMENT) {
+    alert("Assicurati che almeno 4 giocatori abbiano una fascia di abilità assegnata.");
+    return;
+  }
+  
+  let fasciaA = availablePlayers.filter(p => p.skillLevel === SkillLevel.A);
+  let fasciaB = availablePlayers.filter(p => p.skillLevel === SkillLevel.B);
+
+  fasciaA.sort(() => 0.5 - Math.random());
+  fasciaB.sort(() => 0.5 - Math.random());
+  
+  const createdTeams: Team[] = [];
+  
+  switch (settings.pairingStrategy) {
+    case PairingStrategy.BALANCED_AB:
+      while (fasciaA.length > 0 && fasciaB.length > 0) {
+        createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaA.pop()!, player2: fasciaB.pop()! });
+      }
+      break;
+    case PairingStrategy.SKILL_A:
+      while (fasciaA.length >= 2) {
+        createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaA.pop()!, player2: fasciaA.pop()! });
+      }
+      break;
+    case PairingStrategy.SKILL_B:
+      while (fasciaB.length >= 2) {
+        createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaB.pop()!, player2: fasciaB.pop()! });
+      }
+      break;
+    case PairingStrategy.MIXED:
+      let mixedPool = [...fasciaA, ...fasciaB];
+      mixedPool.sort(() => 0.5 - Math.random());
+      while (mixedPool.length >= 2) {
+        createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: mixedPool.pop()!, player2: mixedPool.pop()! });
+      }
+      break;
+  }
+
+  if (createdTeams.length < 2) {
+    alert("Non è stato possibile formare abbastanza squadre (almeno 2) con i giocatori e la strategia selezionati.");
+    return;
+  }
+
+  createdTeams.sort(() => 0.5 - Math.random());
+  const newMatchesArray: Match[] = [];
+  
+  // Utilizziamo un formato UUID per l'ID degli incontri, compatibile con il database
+  for (let i = 0; i < createdTeams.length - 1; i += 2) {
+    // Genera un UUID compatibile con il formato richiesto dal database
+    const matchId = crypto.randomUUID();
     
-    let fasciaA = availablePlayers.filter(p => p.skillLevel === SkillLevel.A);
-    let fasciaB = availablePlayers.filter(p => p.skillLevel === SkillLevel.B);
+    newMatchesArray.push({
+      id: matchId, // UUID senza trattini se necessario
+      round: settings.currentTournamentRound,
+      team1: createdTeams[i],
+      team2: createdTeams[i+1],
+      scores: [],
+      status: 'PENDING',
+      matchFormat: settings.matchFormat,
+    });
+  }
 
-    fasciaA.sort(() => 0.5 - Math.random());
-    fasciaB.sort(() => 0.5 - Math.random());
+  try {
+    setIsLoading(true);
+    let savedMatches: Match[] = [];
     
-    const createdTeams: Team[] = [];
-    
-    switch (settings.pairingStrategy) {
-      case PairingStrategy.BALANCED_AB:
-        while (fasciaA.length > 0 && fasciaB.length > 0) {
-          createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaA.pop()!, player2: fasciaB.pop()! });
-        }
-        break;
-      case PairingStrategy.SKILL_A:
-        while (fasciaA.length >= 2) {
-          createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaA.pop()!, player2: fasciaA.pop()! });
-        }
-        break;
-      case PairingStrategy.SKILL_B:
-        while (fasciaB.length >= 2) {
-          createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: fasciaB.pop()!, player2: fasciaB.pop()! });
-        }
-        break;
-      case PairingStrategy.MIXED:
-        let mixedPool = [...fasciaA, ...fasciaB];
-        mixedPool.sort(() => 0.5 - Math.random());
-        while (mixedPool.length >= 2) {
-          createdTeams.push({ id: `t-${crypto.randomUUID()}`, player1: mixedPool.pop()!, player2: mixedPool.pop()! });
-        }
-        break;
-    }
-
-    if (createdTeams.length < 2) {
-      alert("Non è stato possibile formare abbastanza squadre (almeno 2) con i giocatori e la strategia selezionati.");
-      return;
-    }
-
-    createdTeams.sort(() => 0.5 - Math.random());
-    const newMatchesArray: Match[] = [];
-    for (let i = 0; i < createdTeams.length - 1; i += 2) {
-      newMatchesArray.push({
-        id: `m-${crypto.randomUUID()}`,
-        round: settings.currentTournamentRound,
-        team1: createdTeams[i],
-        team2: createdTeams[i+1],
-        scores: [],
-        status: 'PENDING',
-        matchFormat: settings.matchFormat,
-      });
-    }
-
     if (supabase) {
-        await addMatchesDB(newMatchesArray); // Salva le nuove partite nel DB
+      console.log('Tentativo di salvare gli incontri su Supabase:', newMatchesArray);
+      savedMatches = await addMatchesDB(newMatchesArray);
+      
+      if (!savedMatches || savedMatches.length === 0) {
+        console.error("Errore durante il salvataggio delle partite su Supabase");
+        alert("Si è verificato un errore durante il salvataggio degli incontri nel database. Verranno utilizzati i dati locali.");
+        // Usare la versione locale se il salvataggio nel database fallisce
+        savedMatches = newMatchesArray;
+      } else {
+        console.log('Incontri salvati con successo:', savedMatches);
+      }
+    } else {
+      // Modalità offline
+      console.log('Modalità offline: utilizzo dati locali');
+      savedMatches = newMatchesArray;
     }
-    setMatches(prev => [...prev.filter(m => m.status === 'COMPLETED'), ...newMatchesArray]); // Aggiungi nuove partite, mantenendo le completate
     
+    // Aggiorna lo stato locale con le partite salvate (da DB o locali)
+    setMatches(prev => [...prev.filter(m => m.status === 'COMPLETED'), ...savedMatches]);
+    
+    // Incrementa il round del torneo
     const newRound = settings.currentTournamentRound + 1;
     const newSettings = { ...settings, currentTournamentRound: newRound };
     setSettings(newSettings);
+    
     if (supabase) {
-        await updateSettingsDB(newSettings);
+      const updatedSettings = await updateSettingsDB(newSettings);
+      if (!updatedSettings) {
+        console.warn("Non è stato possibile aggiornare le impostazioni del torneo nel database");
+      }
     }
+    
+    // Mostra feedback di successo
+    alert(`${savedMatches.length} incontri generati con successo per il round ${settings.currentTournamentRound}`);
+    
+  } catch (error) {
+    console.error("Errore durante la generazione degli incontri:", error);
+    alert("Si è verificato un errore durante la generazione degli incontri. Controlla la console per i dettagli.");
+  } finally {
+    setIsLoading(false);
+  }
 
-  }, [players, settings, matches, supabase]);
+}, [players, settings, matches, supabase, addMatchesDB, updateSettingsDB]);
 
 
   const calculatePlayerStats = useCallback((): Player[] => {
@@ -323,29 +363,55 @@ const App: React.FC = () => {
   }, [matches, settings.pointsWin, settings.pointsTieBreakLoss, settings.pointsLoss, calculatePlayerStats]);
 
 
-  const saveMatchResults = async (matchId: string, scores: MatchSetScore[], winnerTeamId?: string) => {
-    const matchToUpdate = matches.find(m => m.id === matchId);
-    if (matchToUpdate) {
-        const updatedMatchData: Match = { 
-            ...matchToUpdate, 
-            scores, 
-            winnerTeamId, 
-            status: winnerTeamId ? 'COMPLETED' : 'IN_PROGRESS' 
-        };
-        if (supabase) {
-            const savedMatch = await updateMatchDB(updatedMatchData);
-            if (savedMatch) {
-                setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? savedMatch : m));
-            }
+const saveMatchResults = async (matchId: string, scores: MatchSetScore[], winnerTeamId?: string) => {
+  const matchToUpdate = matches.find(m => m.id === matchId);
+  if (matchToUpdate) {
+    const updatedMatchData: Match = { 
+      ...matchToUpdate, 
+      scores, 
+      winnerTeamId, 
+      status: winnerTeamId ? 'COMPLETED' : 'IN_PROGRESS' 
+    };
+    
+    try {
+      if (supabase) {
+        console.log("Tentativo di aggiornare il match nel database:", {
+          matchId,
+          scores,
+          winnerTeamId,
+          status: winnerTeamId ? 'COMPLETED' : 'IN_PROGRESS'
+        });
+        
+        const savedMatch = await updateMatchDB(updatedMatchData);
+        
+        if (savedMatch) {
+          console.log("Match aggiornato con successo nel database:", savedMatch);
+          setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? savedMatch : m));
         } else {
-             setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? updatedMatchData : m));
+          console.error("Errore nell'aggiornamento del match nel database");
+          // Fallback a modalità locale
+          setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? updatedMatchData : m));
         }
+      } else {
+        // Modalità offline
+        console.log("Modalità offline: aggiornamento locale del match");
+        setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? updatedMatchData : m));
+      }
+      
+      // Aggiorna le statistiche dei giocatori
+      // Nota: questa funzione recalcola le statistiche dinamicamente quando necessario,
+      // quindi non è necessario aggiornare qui le statistiche persistenti dei giocatori
+      
+    } catch (error) {
+      console.error("Errore durante il salvataggio dei risultati:", error);
+      alert("Si è verificato un errore durante il salvataggio dei risultati. Controlla la console per i dettagli.");
+      // Fallback a modalità locale in caso di errore
+      setMatches(prevMatches => prevMatches.map(m => m.id === matchId ? updatedMatchData : m));
     }
+    
     setMatchForResults(null);
-    // Dopo aver salvato i risultati, potremmo voler aggiornare le statistiche persistenti dei giocatori
-    // Questo è un buon punto se si decide di salvare le stats calcolate nel DB dei giocatori.
-    // Per ora, le statistiche sono calcolate dinamicamente.
-  };
+  }
+};
   
   const resetTournament = async () => {
     if(window.confirm("Sei sicuro di voler resettare l'intero torneo? Tutti i giocatori, partite e classifiche verranno cancellati.")) {
